@@ -6,24 +6,22 @@
 #
 # Build:  podman build -t localhost/postiz:latest .
 # Run:    See README.md for podman run command
-#
-# If building from source fails (OOM, native module issues), you can use
-# the official pre-built image as a source stage instead. See README.md.
 # ==========================================================================
 
 ARG TEMPORAL_VERSION=1.29.3
 ARG TEMPORAL_TOOLS_VERSION=1.29
-ARG POSTIZ_VERSION=v2.19.0
+ARG POSTIZ_VERSION=latest
 
 # --- Stage 1: Temporal admin tools (schema files + migration tool) ---
-# admin-tools tags don't always match server releases; use latest 1.29.x
 FROM docker.io/temporalio/admin-tools:${TEMPORAL_TOOLS_VERSION} AS temporal-tools
 
-# --- Stage 2: Final UBI 10 image with all services ---
+# --- Stage 2: Pre-built Postiz app ---
+FROM ghcr.io/gitroomhq/postiz-app:${POSTIZ_VERSION} AS postiz-source
+
+# --- Stage 3: Final UBI 10 image with all services ---
 FROM registry.access.redhat.com/ubi10/ubi-init
 
 ARG TEMPORAL_VERSION=1.29.3
-ARG POSTIZ_VERSION=v2.19.0
 
 LABEL maintainer="Scott McCarty <smccarty@redhat.com>" \
       description="Postiz social media scheduler on UBI 10 with systemd"
@@ -35,12 +33,11 @@ RUN dnf install -y \
         valkey \
         nginx \
         nodejs npm \
-        gcc-c++ make python3-devel git curl \
-        procps-ng hostname \
+        procps-ng hostname curl \
     && dnf clean all
 
 # ---- Node.js tooling ----
-RUN npm install -g pnpm@10 pm2 && \
+RUN npm install -g pm2 && \
     npm cache clean --force
 
 # ---- Temporal server binary ----
@@ -53,49 +50,11 @@ RUN curl -fsSL \
 COPY --from=temporal-tools /usr/local/bin/temporal-sql-tool /usr/local/bin/
 COPY --from=temporal-tools /etc/temporal/schema/postgresql /etc/temporal/schema/postgresql
 
-# ---- Build Postiz from source ----
+# ---- Copy pre-built Postiz app from official image ----
+COPY --from=postiz-source /app /app
+# Rebuild native modules for RHEL glibc (bcrypt, sharp, etc.)
 WORKDIR /app
-RUN git clone --depth 1 --branch ${POSTIZ_VERSION} \
-      https://github.com/gitroomhq/postiz-app.git . && \
-    rm -rf .git .github
-
-RUN pnpm install --frozen-lockfile 2>/dev/null || pnpm install
-
-RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
-
-# Clean build dependencies
-RUN dnf remove -y gcc-c++ make python3-devel && \
-    dnf clean all && \
-    rm -rf /tmp/* /root/.cache /root/.npm /root/.local
-
-# ---- PM2 ecosystem config ----
-# Runs backend (NestJS :3000), frontend (Next.js :4200), orchestrator (Temporal)
-RUN cat > /app/ecosystem.config.js <<'EOF'
-module.exports = {
-  apps: [
-    {
-      name: 'backend',
-      script: 'dist/src/main.js',
-      cwd: '/app/apps/backend',
-      instances: 1,
-      env: { PORT: '3000' },
-    },
-    {
-      name: 'frontend',
-      script: 'node_modules/.bin/next',
-      args: 'start -p 4200',
-      cwd: '/app/apps/frontend',
-      instances: 1,
-    },
-    {
-      name: 'orchestrator',
-      script: 'dist/src/main.js',
-      cwd: '/app/apps/orchestrator',
-      instances: 1,
-    },
-  ],
-};
-EOF
+RUN npm rebuild 2>/dev/null; true
 
 # ---- Configuration files ----
 COPY nginx.conf /etc/nginx/nginx.conf
