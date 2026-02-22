@@ -235,6 +235,7 @@ Requires=temporal.service valkey.service
 
 [Service]
 Type=simple
+Environment=HOME=/root
 WorkingDirectory=/app
 EnvironmentFile=-/etc/postiz/env
 ExecStart=/usr/local/bin/postiz-start.sh
