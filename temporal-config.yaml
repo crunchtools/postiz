@@ -83,5 +83,5 @@ archival:
     state: "disabled"
 
 dynamicConfigClient:
-  filepath: "config/dynamicconfig/development-sql.yaml"
+  filepath: "/etc/temporal/config/dynamicconfig/development-sql.yaml"
   pollInterval: "60s"
