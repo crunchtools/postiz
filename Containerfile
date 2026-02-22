@@ -20,7 +20,7 @@ ARG POSTIZ_VERSION=v2.19.0
 FROM docker.io/temporalio/admin-tools:${TEMPORAL_TOOLS_VERSION} AS temporal-tools
 
 # --- Stage 2: Final UBI 10 image with all services ---
-FROM registry.redhat.io/ubi10/ubi-init
+FROM registry.access.redhat.com/ubi10/ubi-init
 
 ARG TEMPORAL_VERSION=1.29.3
 ARG POSTIZ_VERSION=v2.19.0
