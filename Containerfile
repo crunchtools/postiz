@@ -46,8 +46,9 @@ RUN curl -fsSL \
     | tar xz -C /usr/local/bin/ && \
     chmod +x /usr/local/bin/temporal-server
 
-# Schema tools + migration SQL from temporal admin-tools
+# Schema tools + migration SQL + CLI from temporal admin-tools
 COPY --from=temporal-tools /usr/local/bin/temporal-sql-tool /usr/local/bin/
+COPY --from=temporal-tools /usr/local/bin/tctl /usr/local/bin/
 COPY --from=temporal-tools /etc/temporal/schema/postgresql /etc/temporal/schema/postgresql
 
 # ---- Copy pre-built Postiz app from official image ----
@@ -196,6 +197,9 @@ for i in $(seq 1 60); do
 done
 
 cd /app
+
+# Create Temporal default namespace (idempotent)
+tctl --address 127.0.0.1:7233 namespace register --namespace default --description 'Default namespace' --retention 1 2>/dev/null || true
 
 # Run Prisma database migrations
 pnpm dlx prisma@6.5.0 db push --accept-data-loss --schema ./libraries/nestjs-libraries/src/database/prisma/schema.prisma
