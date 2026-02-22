@@ -37,7 +37,7 @@ RUN dnf install -y \
     && dnf clean all
 
 # ---- Node.js tooling ----
-RUN npm install -g pm2 && \
+RUN npm install -g pm2 pnpm && \
     npm cache clean --force
 
 # ---- Temporal server binary ----
@@ -147,6 +147,32 @@ echo "Database setup complete."
 SCRIPT
 RUN chmod +x /usr/local/bin/postiz-db-setup.sh
 
+# ---- PM2 ecosystem config ----
+RUN cat > /app/ecosystem.config.js <<'ECOSYS'
+module.exports = {
+  apps: [
+    {
+      name: 'backend',
+      cwd: '/app/apps/backend',
+      script: 'pnpm',
+      args: 'start',
+    },
+    {
+      name: 'frontend',
+      cwd: '/app/apps/frontend',
+      script: 'pnpm',
+      args: 'start',
+    },
+    {
+      name: 'orchestrator',
+      cwd: '/app/apps/orchestrator',
+      script: 'pnpm',
+      args: 'start',
+    },
+  ],
+};
+ECOSYS
+
 # ---- Postiz start script ----
 RUN cat > /usr/local/bin/postiz-start.sh <<'SCRIPT'
 #!/bin/bash
@@ -170,6 +196,10 @@ for i in $(seq 1 60); do
 done
 
 cd /app
+
+# Run Prisma database migrations
+pnpm dlx prisma@6.5.0 db push --accept-data-loss --schema ./libraries/nestjs-libraries/src/database/prisma/schema.prisma
+
 exec pm2-runtime ecosystem.config.js
 SCRIPT
 RUN chmod +x /usr/local/bin/postiz-start.sh
