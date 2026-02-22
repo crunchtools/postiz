@@ -112,6 +112,7 @@ $ENGINE run -d \
     --name "$CTR" \
     --systemd=always \
     --privileged \
+    --cgroupns=host \
     --add-host=postiz.crunchtools.com:127.0.0.1 \
     -v "$ENVFILE":/etc/postiz/env:Z \
     "$IMAGE"
