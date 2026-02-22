@@ -199,7 +199,7 @@ done
 cd /app
 
 # Create Temporal default namespace (idempotent)
-tctl --address 127.0.0.1:7233 namespace register --namespace default --description 'Default namespace' --retention 1 2>/dev/null || true
+tctl --address 127.0.0.1:7233 namespace register --desc 'Default namespace' --rd 1 default 2>/dev/null || true
 
 # Run Prisma database migrations
 pnpm dlx prisma@6.5.0 db push --accept-data-loss --schema ./libraries/nestjs-libraries/src/database/prisma/schema.prisma
