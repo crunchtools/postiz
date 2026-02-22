@@ -1,0 +1,47 @@
+name: Build, Test and Push Postiz Image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo docker image prune -af
+          df -h /
+
+      - name: Build image with Buildah
+        id: build
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: postiz
+          tags: latest ${{ github.sha }}
+          containerfiles: ./Containerfile
+
+      - name: Transfer image to root storage
+        run: podman save localhost/postiz:latest | sudo podman load
+
+      - name: Test container image
+        run: |
+          chmod +x tests/test-container.sh
+          sudo tests/test-container.sh localhost/postiz:latest
+
+      - name: Push to Quay.io
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ steps.build.outputs.tags }}
+          registry: quay.io/crunchtools
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
