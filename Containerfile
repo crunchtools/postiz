@@ -12,10 +12,12 @@
 # ==========================================================================
 
 ARG TEMPORAL_VERSION=1.29.3
+ARG TEMPORAL_TOOLS_VERSION=1.29
 ARG POSTIZ_VERSION=v2.19.0
 
 # --- Stage 1: Temporal admin tools (schema files + migration tool) ---
-FROM docker.io/temporalio/admin-tools:${TEMPORAL_VERSION} AS temporal-tools
+# admin-tools tags don't always match server releases; use latest 1.29.x
+FROM docker.io/temporalio/admin-tools:${TEMPORAL_TOOLS_VERSION} AS temporal-tools
 
 # --- Stage 2: Final UBI 10 image with all services ---
 FROM registry.redhat.io/ubi10/ubi-init
