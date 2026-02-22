@@ -1,0 +1,3 @@
+postiz.env
+*.env
+!.env.example
