@@ -218,7 +218,7 @@ Requires=postiz-db-setup.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/temporal-server start --config /etc/temporal/config.yaml
+ExecStart=/usr/local/bin/temporal-server --root /etc/temporal --config . --env config start
 Restart=on-failure
 RestartSec=5
 
