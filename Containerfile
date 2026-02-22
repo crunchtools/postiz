@@ -29,8 +29,8 @@ LABEL maintainer="Scott McCarty <smccarty@redhat.com>" \
       description="Postiz social media scheduler on UBI 10 with systemd"
 
 # ---- System packages ----
-RUN dnf module enable nodejs:22 -y && \
-    dnf install -y \
+# RHEL 10 / UBI 10: modularity deprecated in DNF5, nodejs available directly
+RUN dnf install -y \
         postgresql-server postgresql \
         redis \
         nginx \
