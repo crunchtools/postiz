@@ -57,6 +57,15 @@ COPY --from=postiz-source /app /app
 WORKDIR /app
 RUN npm rebuild 2>/dev/null; true
 
+# ---- Patch social provider scopes ----
+# LinkedIn: Remove org scopes that require Community Management API product
+RUN sed -i "s/'openid', 'profile', 'w_member_social', 'r_basicprofile', 'rw_organization_admin', 'w_organization_social', 'r_organization_social'/'openid', 'profile', 'w_member_social'/" \
+    /app/apps/backend/dist/libraries/nestjs-libraries/src/integrations/social/linkedin.provider.js
+
+# Mastodon: Replace 'profile' scope with 'read:accounts' (noc.social compatibility)
+RUN sed -i "s/'write:statuses', 'profile', 'write:media'/'write:statuses', 'read:accounts', 'write:media'/" \
+    /app/apps/backend/dist/libraries/nestjs-libraries/src/integrations/social/mastodon.provider.js
+
 # ---- Configuration files ----
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY temporal-config.yaml /etc/temporal/config.yaml
