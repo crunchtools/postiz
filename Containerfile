@@ -29,7 +29,7 @@ LABEL maintainer="Scott McCarty <smccarty@redhat.com>" \
 # ---- System packages ----
 # RHEL 10 / UBI 10: modularity deprecated in DNF5, nodejs available directly
 RUN dnf install -y \
-        postgresql-server postgresql \
+        postgresql-server postgresql postgresql-contrib \
         valkey \
         nginx \
         nodejs npm \
