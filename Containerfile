@@ -69,7 +69,12 @@ set -e
 
 if [ ! -f /var/lib/pgsql/data/PG_VERSION ]; then
     echo "Initializing PostgreSQL data directory..."
-    /usr/bin/initdb -D /var/lib/pgsql/data
+
+    # Fix ownership on volume mount (created as root by podman)
+    chown -R postgres:postgres /var/lib/pgsql/data
+
+    # Run initdb as postgres user
+    su - postgres -c '/usr/bin/initdb -D /var/lib/pgsql/data'
 
     # Trust auth for local connections (safe: port not exposed outside container)
     cat > /var/lib/pgsql/data/pg_hba.conf <<'PG'
@@ -86,6 +91,7 @@ shared_buffers = 256MB
 work_mem = 4MB
 PG
 
+    chown postgres:postgres /var/lib/pgsql/data/pg_hba.conf /var/lib/pgsql/data/postgresql.conf
     echo "PostgreSQL initialized."
 fi
 SCRIPT
@@ -179,7 +185,6 @@ ConditionPathExists=!/var/lib/pgsql/data/PG_VERSION
 
 [Service]
 Type=oneshot
-User=postgres
 ExecStart=/usr/local/bin/postiz-pg-init.sh
 RemainAfterExit=yes
 
