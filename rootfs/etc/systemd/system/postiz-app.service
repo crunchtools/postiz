@@ -1,0 +1,16 @@
+[Unit]
+Description=Postiz Application (PM2)
+After=temporal.service valkey.service nginx.service
+Requires=temporal.service valkey.service
+
+[Service]
+Type=simple
+Environment=HOME=/root
+WorkingDirectory=/app
+EnvironmentFile=-/etc/postiz/env
+ExecStart=/usr/local/bin/postiz-start.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

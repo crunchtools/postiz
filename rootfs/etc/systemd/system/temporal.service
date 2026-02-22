@@ -1,0 +1,13 @@
+[Unit]
+Description=Temporal Server
+After=postiz-db-setup.service
+Requires=postiz-db-setup.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/temporal-server --root /etc/temporal --config . --env config start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

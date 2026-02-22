@@ -20,6 +20,11 @@ jobs:
           sudo docker image prune -af
           df -h /
 
+      - name: Prepare RHSM secrets
+        run: |
+          echo "${{ secrets.RHSM_ACTIVATION_KEY }}" > /tmp/activation_key
+          echo "${{ secrets.RHSM_ORG_ID }}" > /tmp/org_id
+
       - name: Build image with Buildah
         id: build
         uses: redhat-actions/buildah-build@v2
@@ -27,9 +32,9 @@ jobs:
           image: postiz
           tags: latest ${{ github.sha }}
           containerfiles: ./Containerfile
-          build-args: |
-            RHSM_ORG_ID=${{ secrets.RHSM_ORG_ID }}
-            RHSM_ACTIVATION_KEY=${{ secrets.RHSM_ACTIVATION_KEY }}
+          extra-args: |
+            --secret id=activation_key,src=/tmp/activation_key
+            --secret id=org_id,src=/tmp/org_id
 
       - name: Transfer image to root storage
         run: podman save localhost/postiz:latest | sudo podman load

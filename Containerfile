@@ -4,7 +4,8 @@
 # Services: PostgreSQL 16, Valkey 8, Temporal 1.29.3, Node.js 22, nginx
 # ==========================================================================
 #
-# Build:  podman build -t localhost/postiz:latest .
+# Build:  podman build -t localhost/postiz:latest \
+#           --secret id=activation_key,src=... --secret id=org_id,src=... .
 # Run:    See README.md for podman run command
 # ==========================================================================
 
@@ -28,25 +29,29 @@ LABEL maintainer="Scott McCarty <smccarty@redhat.com>" \
 
 # ---- RHEL subscription for CI builds ----
 # On RHEL hosts (e.g. sven), buildah shares host subscriptions — no args needed.
-# In CI, pass --build-arg RHSM_ORG_ID=... --build-arg RHSM_ACTIVATION_KEY=...
-ARG RHSM_ORG_ID=""
-ARG RHSM_ACTIVATION_KEY=""
+# In CI, pass --secret id=activation_key,src=... --secret id=org_id,src=...
+RUN --mount=type=secret,id=activation_key \
+    --mount=type=secret,id=org_id \
+    if [ -f /run/secrets/activation_key ] && [ -f /run/secrets/org_id ]; then \
+        subscription-manager register \
+            --activationkey="$(cat /run/secrets/activation_key)" \
+            --org="$(cat /run/secrets/org_id)"; \
+    fi
+
+# ---- Copy config files, scripts, and systemd units ----
+COPY rootfs/ /
 
 # ---- System packages ----
-# Register if activation key provided (CI), install, then unregister.
-RUN if [ -n "$RHSM_ACTIVATION_KEY" ] && [ -n "$RHSM_ORG_ID" ]; then \
-        subscription-manager register \
-            --activationkey="$RHSM_ACTIVATION_KEY" \
-            --org="$RHSM_ORG_ID"; \
-    fi && \
-    dnf install -y \
+RUN dnf install -y \
         postgresql-server postgresql postgresql-contrib \
         valkey \
         nginx \
         nodejs npm \
         procps-ng hostname curl \
-    && dnf clean all && \
-    (subscription-manager unregister 2>/dev/null || true)
+    && dnf clean all
+
+# ---- Unregister from RHSM (if registered above) ----
+RUN subscription-manager unregister 2>/dev/null || true
 
 # ---- Node.js tooling ----
 RUN npm install -g pm2 pnpm && \
@@ -78,6 +83,9 @@ RUN sed -i "s/'openid', 'profile', 'w_member_social', 'r_basicprofile', 'rw_orga
 RUN sed -i "s/'write:statuses', 'profile', 'write:media'/'write:statuses', 'read:accounts', 'write:media'/" \
     /app/apps/backend/dist/libraries/nestjs-libraries/src/integrations/social/mastodon.provider.js
 
+# ---- PM2 ecosystem config (after postiz-source copy since /app is overwritten) ----
+COPY ecosystem.config.js /app/ecosystem.config.js
+
 # ---- Self-signed cert for internal Next.js image optimization ----
 # Next.js fetches absolute image URLs via HTTPS internally; nginx serves
 # them on port 443 with this cert. Requires --add-host in podman run.
@@ -89,232 +97,12 @@ RUN openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
 # Trust the self-signed cert in Node.js
 ENV NODE_EXTRA_CA_CERTS=/etc/nginx/selfsigned.crt
 
-# ---- Configuration files ----
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY temporal-config.yaml /etc/temporal/config.yaml
-RUN mkdir -p /etc/temporal/config/dynamicconfig
-COPY dynamicconfig.yaml /etc/temporal/config/dynamicconfig/development-sql.yaml
-
-# ---- PostgreSQL initialization script ----
-RUN cat > /usr/local/bin/postiz-pg-init.sh <<'SCRIPT'
-#!/bin/bash
-set -e
-
-if [ ! -f /var/lib/pgsql/data/PG_VERSION ]; then
-    echo "Initializing PostgreSQL data directory..."
-
-    # Fix ownership on volume mount (created as root by podman)
-    chown -R postgres:postgres /var/lib/pgsql/data
-
-    # Run initdb as postgres user
-    su - postgres -c '/usr/bin/initdb -D /var/lib/pgsql/data'
-
-    # Trust auth for local connections (safe: port not exposed outside container)
-    cat > /var/lib/pgsql/data/pg_hba.conf <<'PG'
-local   all   all                 trust
-host    all   all   127.0.0.1/32  trust
-host    all   all   ::1/128       trust
-PG
-
-    # Tune for container use
-    cat >> /var/lib/pgsql/data/postgresql.conf <<'PG'
-listen_addresses = '127.0.0.1'
-max_connections = 100
-shared_buffers = 256MB
-work_mem = 4MB
-PG
-
-    chown postgres:postgres /var/lib/pgsql/data/pg_hba.conf /var/lib/pgsql/data/postgresql.conf
-    echo "PostgreSQL initialized."
-fi
-SCRIPT
-RUN chmod +x /usr/local/bin/postiz-pg-init.sh
-
-# ---- Database setup script (creates DBs + runs Temporal migrations) ----
-RUN cat > /usr/local/bin/postiz-db-setup.sh <<'SCRIPT'
-#!/bin/bash
-set -e
-
-# Wait for PostgreSQL
-for i in $(seq 1 30); do
-    pg_isready -q && break
-    sleep 1
-done
-
-# Create databases
-for db in postiz temporal temporal_visibility; do
-    psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = '${db}'" | grep -q 1 || \
-        psql -U postgres -c "CREATE DATABASE ${db};"
-done
-
-# Create temporal user
-psql -U postgres -tc "SELECT 1 FROM pg_roles WHERE rolname = 'temporal'" | grep -q 1 || \
-    psql -U postgres -c "CREATE USER temporal WITH PASSWORD 'temporal';"
-
-# Grant privileges
-for db in temporal temporal_visibility; do
-    psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE ${db} TO temporal;"
-    psql -U postgres -d "${db}" -c "GRANT ALL ON SCHEMA public TO temporal;"
-done
-
-# Run Temporal schema setup (idempotent)
-export SQL_PLUGIN=postgres12
-export SQL_HOST=127.0.0.1
-export SQL_PORT=5432
-export SQL_USER=temporal
-export SQL_PASSWORD=temporal
-
-export SQL_DATABASE=temporal
-if ! psql -U temporal -d temporal -tc "SELECT 1 FROM schema_version LIMIT 1" 2>/dev/null | grep -q 1; then
-    temporal-sql-tool setup-schema -v 0.0
-    temporal-sql-tool update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned
-fi
-
-export SQL_DATABASE=temporal_visibility
-if ! psql -U temporal -d temporal_visibility -tc "SELECT 1 FROM schema_version LIMIT 1" 2>/dev/null | grep -q 1; then
-    temporal-sql-tool setup-schema -v 0.0
-    temporal-sql-tool update-schema -d /etc/temporal/schema/postgresql/v12/visibility/versioned
-fi
-
-echo "Database setup complete."
-SCRIPT
-RUN chmod +x /usr/local/bin/postiz-db-setup.sh
-
-# ---- PM2 ecosystem config ----
-RUN cat > /app/ecosystem.config.js <<'ECOSYS'
-module.exports = {
-  apps: [
-    {
-      name: 'backend',
-      cwd: '/app/apps/backend',
-      script: 'pnpm',
-      args: 'start',
-    },
-    {
-      name: 'frontend',
-      cwd: '/app/apps/frontend',
-      script: 'pnpm',
-      args: 'start',
-    },
-    {
-      name: 'orchestrator',
-      cwd: '/app/apps/orchestrator',
-      script: 'pnpm',
-      args: 'start',
-    },
-  ],
-};
-ECOSYS
-
-# ---- Postiz start script ----
-RUN cat > /usr/local/bin/postiz-start.sh <<'SCRIPT'
-#!/bin/bash
-set -e
-
-# Source environment file
-if [ -f /etc/postiz/env ]; then
-    set -a
-    source /etc/postiz/env
-    set +a
-fi
-
-# Wait for Temporal to be ready (gRPC on 7233)
-for i in $(seq 1 60); do
-    if timeout 2 bash -c "echo > /dev/tcp/127.0.0.1/7233" 2>/dev/null; then
-        echo "Temporal is ready"
-        break
-    fi
-    echo "Waiting for Temporal... ($i/60)"
-    sleep 2
-done
-
-cd /app
-
-# Create Temporal default namespace (idempotent)
-tctl --address 127.0.0.1:7233 namespace register --desc 'Default namespace' --rd 1 default 2>/dev/null || true
-
-# Run Prisma database migrations
-pnpm dlx prisma@6.5.0 db push --accept-data-loss --schema ./libraries/nestjs-libraries/src/database/prisma/schema.prisma
-
-exec pm2-runtime ecosystem.config.js
-SCRIPT
-RUN chmod +x /usr/local/bin/postiz-start.sh
-
-# ---- systemd service units ----
-
-# PostgreSQL init (one-shot, first boot only)
-RUN cat > /etc/systemd/system/postiz-pg-init.service <<'UNIT'
-[Unit]
-Description=Initialize PostgreSQL data directory
-Before=postgresql.service
-ConditionPathExists=!/var/lib/pgsql/data/PG_VERSION
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/postiz-pg-init.sh
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-
-# Database setup (after PostgreSQL is ready)
-RUN cat > /etc/systemd/system/postiz-db-setup.service <<'UNIT'
-[Unit]
-Description=Create Postiz and Temporal databases
-After=postgresql.service
-Requires=postgresql.service
-
-[Service]
-Type=oneshot
-User=postgres
-ExecStart=/usr/local/bin/postiz-db-setup.sh
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-
-# Temporal server
-RUN cat > /etc/systemd/system/temporal.service <<'UNIT'
-[Unit]
-Description=Temporal Server
-After=postiz-db-setup.service
-Requires=postiz-db-setup.service
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/temporal-server --root /etc/temporal --config . --env config start
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-
-# Postiz application (PM2)
-RUN cat > /etc/systemd/system/postiz-app.service <<'UNIT'
-[Unit]
-Description=Postiz Application (PM2)
-After=temporal.service valkey.service nginx.service
-Requires=temporal.service valkey.service
-
-[Service]
-Type=simple
-Environment=HOME=/root
-WorkingDirectory=/app
-EnvironmentFile=-/etc/postiz/env
-ExecStart=/usr/local/bin/postiz-start.sh
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-
-# Enable all services
-RUN systemctl enable postiz-pg-init postgresql valkey nginx \
-    postiz-db-setup temporal postiz-app
+# ---- Make scripts executable and enable services ----
+RUN chmod +x /usr/local/bin/postiz-pg-init.sh \
+              /usr/local/bin/postiz-db-setup.sh \
+              /usr/local/bin/postiz-start.sh && \
+    systemctl enable postiz-pg-init postgresql valkey nginx \
+        postiz-db-setup temporal postiz-app
 
 # Create required directories
 RUN mkdir -p /uploads /etc/postiz && \

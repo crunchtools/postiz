@@ -1,0 +1,12 @@
+[Unit]
+Description=Initialize PostgreSQL data directory
+Before=postgresql.service
+ConditionPathExists=!/var/lib/pgsql/data/PG_VERSION
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/postiz-pg-init.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
