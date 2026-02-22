@@ -1,7 +1,7 @@
 # ==========================================================================
 # Postiz - Self-hosted social media scheduler
 # Single UBI 10 container with systemd
-# Services: PostgreSQL 16, Redis 7, Temporal 1.29.3, Node.js 22, nginx
+# Services: PostgreSQL 16, Valkey 8, Temporal 1.29.3, Node.js 22, nginx
 # ==========================================================================
 #
 # Build:  podman build -t localhost/postiz:latest .
@@ -32,7 +32,7 @@ LABEL maintainer="Scott McCarty <smccarty@redhat.com>" \
 # RHEL 10 / UBI 10: modularity deprecated in DNF5, nodejs available directly
 RUN dnf install -y \
         postgresql-server postgresql \
-        redis \
+        valkey \
         nginx \
         nodejs npm \
         gcc-c++ make python3-devel git curl \
@@ -266,8 +266,8 @@ UNIT
 RUN cat > /etc/systemd/system/postiz-app.service <<'UNIT'
 [Unit]
 Description=Postiz Application (PM2)
-After=temporal.service redis.service nginx.service
-Requires=temporal.service redis.service
+After=temporal.service valkey.service nginx.service
+Requires=temporal.service valkey.service
 
 [Service]
 Type=simple
@@ -282,7 +282,7 @@ WantedBy=multi-user.target
 UNIT
 
 # Enable all services
-RUN systemctl enable postiz-pg-init postgresql redis nginx \
+RUN systemctl enable postiz-pg-init postgresql valkey nginx \
     postiz-db-setup temporal postiz-app
 
 # Create required directories
