@@ -26,34 +26,27 @@ ARG TEMPORAL_VERSION=1.29.3
 LABEL maintainer="Scott McCarty <smccarty@redhat.com>" \
       description="Postiz social media scheduler on UBI 10 with systemd"
 
-# ---- Enable CentOS Stream 10 repos when RHEL subscriptions are absent (CI) ----
-# On RHEL hosts (e.g. sven), buildah shares the host subscriptions automatically.
-# On GitHub Actions (Ubuntu), no RHEL repos exist — fall back to CentOS Stream 10.
-RUN if ! dnf repolist --enabled 2>/dev/null | grep -q rhel; then \
-    printf '%s\n' \
-        '[cs10-baseos]' \
-        'name=CentOS Stream 10 - BaseOS' \
-        'baseurl=https://mirror.stream.centos.org/10-stream/BaseOS/$basearch/os/' \
-        'gpgcheck=0' \
-        'enabled=1' \
-        '' \
-        '[cs10-appstream]' \
-        'name=CentOS Stream 10 - AppStream' \
-        'baseurl=https://mirror.stream.centos.org/10-stream/AppStream/$basearch/os/' \
-        'gpgcheck=0' \
-        'enabled=1' \
-    > /etc/yum.repos.d/centos-stream-10.repo; \
-fi
+# ---- RHEL subscription for CI builds ----
+# On RHEL hosts (e.g. sven), buildah shares host subscriptions — no args needed.
+# In CI, pass --build-arg RHSM_ORG_ID=... --build-arg RHSM_ACTIVATION_KEY=...
+ARG RHSM_ORG_ID=""
+ARG RHSM_ACTIVATION_KEY=""
 
 # ---- System packages ----
-# RHEL 10 / UBI 10: modularity deprecated in DNF5, nodejs available directly
-RUN dnf install -y \
+# Register if activation key provided (CI), install, then unregister.
+RUN if [ -n "$RHSM_ACTIVATION_KEY" ] && [ -n "$RHSM_ORG_ID" ]; then \
+        subscription-manager register \
+            --activationkey="$RHSM_ACTIVATION_KEY" \
+            --org="$RHSM_ORG_ID"; \
+    fi && \
+    dnf install -y \
         postgresql-server postgresql postgresql-contrib \
         valkey \
         nginx \
         nodejs npm \
         procps-ng hostname curl \
-    && dnf clean all
+    && dnf clean all && \
+    (subscription-manager unregister 2>/dev/null || true)
 
 # ---- Node.js tooling ----
 RUN npm install -g pm2 pnpm && \

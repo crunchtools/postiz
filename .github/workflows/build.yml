@@ -27,6 +27,9 @@ jobs:
           image: postiz
           tags: latest ${{ github.sha }}
           containerfiles: ./Containerfile
+          build-args: |
+            RHSM_ORG_ID=${{ secrets.RHSM_ORG_ID }}
+            RHSM_ACTIVATION_KEY=${{ secrets.RHSM_ACTIVATION_KEY }}
 
       - name: Transfer image to root storage
         run: podman save localhost/postiz:latest | sudo podman load
