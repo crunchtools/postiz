@@ -66,6 +66,17 @@ RUN sed -i "s/'openid', 'profile', 'w_member_social', 'r_basicprofile', 'rw_orga
 RUN sed -i "s/'write:statuses', 'profile', 'write:media'/'write:statuses', 'read:accounts', 'write:media'/" \
     /app/apps/backend/dist/libraries/nestjs-libraries/src/integrations/social/mastodon.provider.js
 
+# ---- Self-signed cert for internal Next.js image optimization ----
+# Next.js fetches absolute image URLs via HTTPS internally; nginx serves
+# them on port 443 with this cert. Requires --add-host in podman run.
+RUN openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+      -keyout /etc/nginx/selfsigned.key \
+      -out /etc/nginx/selfsigned.crt \
+      -subj "/CN=postiz.crunchtools.com" 2>/dev/null
+
+# Trust the self-signed cert in Node.js
+ENV NODE_EXTRA_CA_CERTS=/etc/nginx/selfsigned.crt
+
 # ---- Configuration files ----
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY temporal-config.yaml /etc/temporal/config.yaml
