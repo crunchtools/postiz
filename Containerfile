@@ -34,6 +34,8 @@ FROM registry.access.redhat.com/ubi10/ubi AS postiz-build
 RUN dnf install -y nodejs npm git gcc g++ make python3 && dnf clean all
 RUN git clone --depth 1 https://github.com/gitroomhq/postiz-app.git /src/postiz
 WORKDIR /src/postiz
+COPY patches/ /src/postiz/patches/
+RUN git apply patches/*.patch
 RUN npm install -g pnpm@10.6.1 && \
     echo 'onlyBuiltDependencies=*' >> .npmrc && \
     pnpm install && \
