@@ -32,10 +32,9 @@ RUN CGO_ENABLED=0 go build -o /out/tctl ./cmd/tctl
 # --- Stage 3: Build Postiz from source (UBI 10 for glibc match with final stage) ---
 FROM registry.access.redhat.com/ubi10/ubi AS postiz-build
 RUN dnf install -y nodejs npm git gcc g++ make python3 && dnf clean all
-RUN git clone --depth 1 https://github.com/gitroomhq/postiz-app.git /src/postiz
+RUN git clone --depth 1 --branch crunchtools-patches \
+        https://github.com/fatherlinux/postiz-app.git /src/postiz
 WORKDIR /src/postiz
-COPY patches/ /src/postiz/patches/
-RUN git apply patches/*.patch
 RUN npm install -g pnpm@10.6.1 && \
     echo 'onlyBuiltDependencies=*' >> .npmrc && \
     pnpm install && \
@@ -108,15 +107,6 @@ COPY --from=temporal-build /src/temporal/schema/postgresql /etc/temporal/schema/
 # ---- Copy Postiz app built from source ----
 COPY --from=postiz-build /src/postiz /app
 WORKDIR /app
-
-# ---- Patch social provider scopes ----
-# LinkedIn: Remove org scopes that require Community Management API product
-RUN sed -i "s/'openid', 'profile', 'w_member_social', 'r_basicprofile', 'rw_organization_admin', 'w_organization_social', 'r_organization_social'/'openid', 'profile', 'w_member_social'/" \
-    /app/apps/backend/dist/libraries/nestjs-libraries/src/integrations/social/linkedin.provider.js
-
-# Mastodon: Replace 'profile' scope with 'read:accounts' (noc.social compatibility)
-RUN sed -i "s/'write:statuses', 'profile', 'write:media'/'write:statuses', 'read:accounts', 'write:media'/" \
-    /app/apps/backend/dist/libraries/nestjs-libraries/src/integrations/social/mastodon.provider.js
 
 # ---- PM2 ecosystem config (after postiz-source copy since /app is overwritten) ----
 COPY ecosystem.config.js /app/ecosystem.config.js
