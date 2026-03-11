@@ -5,7 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  repository_dispatch:
+    types: [parent-image-updated]
   workflow_dispatch:
+  schedule:
+    - cron: '15 4 * * 1'
 
 jobs:
   build-test-push:
@@ -22,8 +26,8 @@ jobs:
 
       - name: Prepare RHSM secrets
         run: |
-          echo "${{ secrets.RHSM_ACTIVATION_KEY }}" > /tmp/activation_key
-          echo "${{ secrets.RHSM_ORG_ID }}" > /tmp/org_id
+          echo "${{ secrets.RHSM_ACTIVATION_KEY }}" > /tmp/RHSM_ACTIVATION_KEY
+          echo "${{ secrets.RHSM_ORG_ID }}" > /tmp/RHSM_ORG_ID
 
       - name: Build image with Buildah
         id: build
@@ -33,8 +37,8 @@ jobs:
           tags: latest ${{ github.sha }}
           containerfiles: ./Containerfile
           extra-args: |
-            --secret id=activation_key,src=/tmp/activation_key
-            --secret id=org_id,src=/tmp/org_id
+            --secret id=RHSM_ACTIVATION_KEY,src=/tmp/RHSM_ACTIVATION_KEY
+            --secret id=RHSM_ORG_ID,src=/tmp/RHSM_ORG_ID
 
       - name: Transfer image to root storage
         run: podman save localhost/postiz:latest | sudo podman load

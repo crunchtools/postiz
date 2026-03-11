@@ -41,56 +41,32 @@ RUN npm install -g pnpm@10.6.1 && \
     NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
 
 # --- Stage 4: Final UBI 10 image with all services ---
-FROM registry.access.redhat.com/ubi10/ubi-init
+# Inherits troubleshooting tools, cron, systemd hardening from ubi10-core
+FROM quay.io/crunchtools/ubi10-core:latest
 
 ARG TEMPORAL_VERSION=1.29.3
 
 LABEL maintainer="Scott McCarty <smccarty@redhat.com>" \
       description="Postiz social media scheduler on UBI 10 with systemd"
 
-# ---- RHEL repos: subscription or CentOS Stream fallback ----
-# On RHEL hosts (e.g. sven), buildah shares host subscriptions — no args needed.
-# In CI with secrets, use RHSM activation key. Without either, fall back to
-# CentOS Stream 10 repos (binary-compatible with RHEL 10 / UBI 10).
-RUN --mount=type=secret,id=activation_key \
-    --mount=type=secret,id=org_id \
-    AK=$(cat /run/secrets/activation_key 2>/dev/null | tr -d '[:space:]') && \
-    ORG=$(cat /run/secrets/org_id 2>/dev/null | tr -d '[:space:]') && \
-    if [ -n "$AK" ] && [ -n "$ORG" ]; then \
-        subscription-manager register \
-            --activationkey="$AK" \
-            --org="$ORG"; \
-    elif ! dnf repolist --enabled 2>/dev/null | grep -q rhel; then \
-        rm -f /etc/yum.repos.d/ubi.repo; \
-        printf '%s\n' \
-            '[cs10-baseos]' \
-            'name=CentOS Stream 10 - BaseOS' \
-            'baseurl=https://mirror.stream.centos.org/10-stream/BaseOS/$basearch/os/' \
-            'gpgcheck=0' \
-            'enabled=1' \
-            '' \
-            '[cs10-appstream]' \
-            'name=CentOS Stream 10 - AppStream' \
-            'baseurl=https://mirror.stream.centos.org/10-stream/AppStream/$basearch/os/' \
-            'gpgcheck=0' \
-            'enabled=1' \
-        > /etc/yum.repos.d/centos-stream-10.repo; \
-    fi
-
 # ---- Copy config files, scripts, and systemd units ----
 COPY rootfs/ /
 
 # ---- System packages ----
-RUN dnf install -y \
+# postgresql-server requires RHSM — register, install, unregister in single layer
+RUN --mount=type=secret,id=RHSM_ACTIVATION_KEY \
+    --mount=type=secret,id=RHSM_ORG_ID \
+    subscription-manager register \
+      --activationkey="$(cat /run/secrets/RHSM_ACTIVATION_KEY)" \
+      --org="$(cat /run/secrets/RHSM_ORG_ID)" \
+    && dnf install -y \
         postgresql-server postgresql postgresql-contrib \
         valkey \
         nginx \
         nodejs npm \
-        procps-ng hostname curl \
-    && dnf clean all
-
-# ---- Unregister from RHSM (if registered above) ----
-RUN subscription-manager unregister 2>/dev/null || true
+        hostname curl \
+    && dnf clean all \
+    && subscription-manager unregister
 
 # ---- Node.js tooling ----
 RUN npm install -g pm2 pnpm && \
