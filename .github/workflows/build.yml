@@ -8,9 +8,6 @@ on:
   repository_dispatch:
     types: [parent-image-updated]
   workflow_dispatch:
-  schedule:
-    - cron: '15 4 * * 1'
-
 jobs:
   build-test-push:
     runs-on: ubuntu-latest
