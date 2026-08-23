@@ -19,18 +19,27 @@ PG
 
     # Tune for container use.
     #
-    # Sized for a single-tenant install: the only clients are the Postiz apps
-    # and the Temporal server's two connection pools (see
-    # /etc/temporal/config.yaml). 100 connections at 256MB of shared_buffers is
-    # sized for a workload this instance will never see, and postgres reserves
-    # per-connection memory up front.
+    # shared_buffers drops to 128MB — 256MB is sized for a workload this
+    # instance will never see.
+    #
+    # max_connections stays generous on purpose. Do NOT lower it without
+    # doing this arithmetic first:
+    #   - Prisma defaults to num_cpus*2+1 per client and DATABASE_URL sets no
+    #     connection_limit, so on 6 vCPUs that is 13 each for the backend and
+    #     the orchestrator = 26.
+    #   - Temporal opens a pool PER SERVICE (frontend/history/matching/worker),
+    #     not one global pool, so maxConns in config.yaml is not the ceiling.
+    #     Measured ~13 at idle.
+    #   - Background workers = 4.
+    # Worst case is therefore ~43 against an idle baseline of ~22. Setting this
+    # to 30 was measured to leave no headroom and is an outage waiting for load.
     #
     # NOTE: this block only runs on first init (guarded by the PG_VERSION
     # check above). Changing it here does not touch an existing data volume —
     # edit postgresql.conf on the volume directly and restart for that.
     cat >> /var/lib/pgsql/data/postgresql.conf <<'PG'
 listen_addresses = '127.0.0.1'
-max_connections = 30
+max_connections = 60
 shared_buffers = 128MB
 work_mem = 4MB
 PG
