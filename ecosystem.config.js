@@ -28,7 +28,14 @@ module.exports = {
       cwd: '/app/apps/backend',
       script: './dist/apps/backend/src/main.js',
       interpreter: 'node',
-      interpreter_args: `${REQUIRE_MODULE} --max-old-space-size=256`,
+      // 384, not 256. The backend's live working set reaches ~246 MB of
+      // old-space and 256 killed it: it crash-looped 111 times in 21 minutes
+      // with "Reached heap limit Allocation failed - JavaScript heap out of
+      // memory", taking the API down (nginx 502 on /api/*) while the frontend
+      // kept serving and looked healthy. 384 is the value it ran on for months
+      // under the old global NODE_OPTIONS. Do not lower it without watching
+      // `pm2 list` restart counts for several minutes under real traffic.
+      interpreter_args: `${REQUIRE_MODULE} --max-old-space-size=384`,
     },
     {
       name: 'frontend',
