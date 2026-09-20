@@ -42,10 +42,14 @@ module.exports = {
       cwd: '/app/apps/frontend',
       // next's bin is a plain node script; run it under our own interpreter
       // so the heap flag applies to the server process itself.
+      // 384, not 192. The frontend's working set reaches ~254 MB under
+      // real traffic and 192 killed it: crash-looped 12 times with
+      // "JavaScript heap out of memory", producing intermittent 502s
+      // that Nagios missed because the process restarted in seconds.
       script: '/app/node_modules/.bin/next',
       args: 'start -p 4200',
       interpreter: 'node',
-      interpreter_args: '--max-old-space-size=192',
+      interpreter_args: '--max-old-space-size=384',
     },
     {
       name: 'orchestrator',
