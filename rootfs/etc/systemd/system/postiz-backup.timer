@@ -1,0 +1,16 @@
+[Unit]
+Description=Run the Postiz cluster dump nightly
+Documentation=https://rt.fatherlinux.com/Ticket/Display.html?id=1495
+
+[Timer]
+# 04:00 container-local, matching learn.fatherlinux.com and rt.fatherlinux.com,
+# and comfortably before the Saturday 04:00 EDT ServerBackups run picks /srv up.
+OnCalendar=*-*-* 04:00:00
+# The container is restarted for deploys and updates. Without this, a restart
+# that straddles 04:00 silently skips a night.
+Persistent=true
+RandomizedDelaySec=300
+Unit=postiz-backup.service
+
+[Install]
+WantedBy=timers.target
