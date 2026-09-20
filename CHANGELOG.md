@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-20
+
+### Added
+- Nightly `pg_dumpall` of the whole cluster via `postiz-backup.timer`, written
+  dated and gzipped to `/root/.backups` with 14-day retention (RT #1495). The
+  host's weekly backup already took its own dump; this cuts worst-case RPO from
+  seven days to one and keeps dated history, so a dump that goes bad cannot
+  overwrite the last good one.
+- Backup and restore gates in `tests/test-container.sh`: CI now runs the dump
+  and restores it over the live CI cluster, asserting postiz, temporal and
+  temporal_visibility all survive the round trip. 30 tests to 41.
+
 ## [0.3.0] - 2026-09-20
 
 ### Fixed

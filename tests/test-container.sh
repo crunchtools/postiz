@@ -34,7 +34,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "TAP version 13"
-echo "1..30"
+echo "1..41"
 echo "# Image: $IMAGE"
 echo "# Engine: $ENGINE"
 
@@ -53,18 +53,20 @@ done < <($ENGINE run --rm --entrypoint /bin/bash "$IMAGE" -c '
     for f in /etc/nginx/nginx.conf /etc/temporal/config.yaml \
              /usr/local/bin/temporal-server /usr/local/bin/postiz-start.sh \
              /app/ecosystem.config.js /etc/nginx/selfsigned.crt \
-             /etc/nginx/selfsigned.key; do
+             /etc/nginx/selfsigned.key /usr/local/bin/postiz-backup.sh; do
         [ -f "$f" ] && ok "$f exists" || nok "$f exists"
     done
 
     # Executables
     for f in /usr/local/bin/temporal-server /usr/local/bin/postiz-start.sh \
-             /usr/local/bin/postiz-pg-init.sh /usr/local/bin/postiz-db-setup.sh; do
+             /usr/local/bin/postiz-pg-init.sh /usr/local/bin/postiz-db-setup.sh \
+             /usr/local/bin/postiz-backup.sh; do
         [ -x "$f" ] && ok "$f is executable" || nok "$f is executable"
     done
 
     # Systemd units enabled
-    for s in postgresql valkey nginx temporal postiz-app postiz-pg-init postiz-db-setup; do
+    for s in postgresql valkey nginx temporal postiz-app postiz-pg-init postiz-db-setup \
+             postiz-backup.timer; do
         systemctl is-enabled "$s" >/dev/null 2>&1 \
             && ok "$s service enabled" || nok "$s service enabled"
     done
@@ -81,7 +83,7 @@ else
     tap "FAIL" "NODE_EXTRA_CA_CERTS set in image config"
 fi
 
-# Phase 1 total: 7 files + 4 exec + 7 systemd + 1 SSL + 1 env = 20 tests
+# Phase 1 total: 8 files + 5 exec + 8 systemd + 1 SSL + 1 env = 23 tests
 
 # ==================================================================
 # Phase 2: Runtime service checks (systemd container)
@@ -169,8 +171,41 @@ run_check "HTTP response on port 5000" \
 run_check "HTTPS response on port 443" \
     bash -c "curl -sk -o /dev/null https://localhost:443/"
 
-# Phase 2 total: 10 tests
-# Grand total: 30 tests
+
+# --- Backup and restore (RT #1495) ---
+# The dump is only worth having if it restores, so CI proves the round trip on a
+# throwaway container rather than trusting that a .sql.gz of the right size is good.
+echo "# --- Backup and restore ---"
+
+run_check "postiz-backup.sh runs clean" /usr/local/bin/postiz-backup.sh
+run_check "dump passes gzip integrity check" \
+    bash -c "gzip -t /root/.backups/postiz-latest.sql.gz"
+run_check "dump contains the postiz database" \
+    bash -c "gunzip -c /root/.backups/postiz-latest.sql.gz | grep -q 'CREATE DATABASE postiz'"
+run_check "dump contains the temporal role" \
+    bash -c "gunzip -c /root/.backups/postiz-latest.sql.gz | grep -q 'CREATE ROLE temporal'"
+
+# Destructive on purpose, and deliberately last: --clean --if-exists drops and
+# recreates every database in this cluster. Fine here, since the container is
+# thrown away immediately after. ON_ERROR_STOP stays off because pg_dumpall
+# --clean always emits a DROP ROLE for the role running the restore, which
+# cannot succeed and is not a real failure. The assertions below are the gate.
+echo "# Restoring the dump over the live CI cluster..."
+$ENGINE exec "$CTR" bash -c \
+    "gunzip -c /root/.backups/postiz-latest.sql.gz | psql -U postgres -d postgres -q" \
+    >/dev/null 2>&1
+
+run_check "postiz database survives a full restore" \
+    bash -c "psql -U postgres -lqt | grep -qw postiz"
+run_check "temporal schema_version survives a full restore" \
+    bash -c "psql -U postgres -d temporal -tc \"SELECT 1 FROM schema_version LIMIT 1\" | grep -q 1"
+run_check "temporal_visibility survives a full restore" \
+    bash -c "psql -U postgres -d temporal_visibility -tc \"SELECT 1 FROM schema_version LIMIT 1\" | grep -q 1"
+run_check "restored postiz database accepts connections" \
+    bash -c "psql -U postgres -d postiz -tAc 'SELECT 1' | grep -q 1"
+
+# Phase 2 total: 10 + 8 = 18 tests
+# Grand total: 41 tests
 
 # ==================================================================
 # Summary

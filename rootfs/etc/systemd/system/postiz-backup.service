@@ -1,0 +1,16 @@
+[Unit]
+Description=Nightly logical dump of the Postiz PostgreSQL cluster
+Documentation=https://rt.fatherlinux.com/Ticket/Display.html?id=1495
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/postiz-backup.sh
+# The dump is the only thing standing between a bad night and losing every
+# scheduled post, so a failure has to be loud. Output goes to journald, which
+# ubi10-core forwards to syslog.crunchtools.com.
+StandardOutput=journal
+StandardError=journal
+Nice=10
+IOSchedulingClass=idle

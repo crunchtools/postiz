@@ -101,12 +101,16 @@ ENV NODE_EXTRA_CA_CERTS=/etc/nginx/selfsigned.crt
 # ---- Make scripts executable and enable services ----
 RUN chmod +x /usr/local/bin/postiz-pg-init.sh \
               /usr/local/bin/postiz-db-setup.sh \
-              /usr/local/bin/postiz-start.sh && \
+              /usr/local/bin/postiz-start.sh \
+              /usr/local/bin/postiz-backup.sh && \
     systemctl enable postiz-pg-init postgresql valkey nginx \
-        postiz-db-setup temporal postiz-app
+        postiz-db-setup temporal postiz-app postiz-backup.timer
 
-# Create required directories
-RUN mkdir -p /uploads /etc/postiz && \
+# Create required directories. /root/.backups is where the nightly cluster dump
+# lands (RT #1495); the host bind-mounts it from
+# /srv/postiz.crunchtools.com/data/backups so the weekly rclone sync ships it.
+RUN mkdir -p /uploads /etc/postiz /root/.backups && \
+    chmod 700 /root/.backups && \
     chown -R postgres:postgres /var/lib/pgsql
 
 EXPOSE 5000

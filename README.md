@@ -1,4 +1,4 @@
-# Postiz - Self-Hosted Social Media Scheduler (v0.3.0)
+# Postiz - Self-Hosted Social Media Scheduler (v0.4.0)
 
 Replaces Buffer with [Postiz](https://postiz.com), a self-hosted open-source social media scheduling tool. Deployed as a single UBI 10 systemd container.
 
@@ -29,6 +29,43 @@ Build requires ~4GB memory for the Node.js compilation step.
 ## Deploy
 
 The live deployment configuration lives in the private host repo, not here.
+
+## Backups
+
+`postiz-backup.timer` runs `/usr/local/bin/postiz-backup.sh` nightly at 04:00
+container-local. It takes a `pg_dumpall` of the whole cluster — postiz,
+temporal, temporal_visibility and the `temporal` role — gzips it to a dated
+file under `/root/.backups`, keeps 14 days, and refreshes
+`postiz-latest.sql.gz`. The host bind-mounts that directory, and the weekly
+`/srv` sync ships it off-box.
+
+`pg_dumpall`, not `pg_dump`: a postiz-only dump restores into a stack that will
+not start, because Temporal's schema and role come up missing.
+
+The script refuses to publish a dump it cannot vouch for. It writes to a temp
+file, checks gzip integrity, and greps for three cluster markers before the
+file is allowed to replace yesterday's — `pg_dumpall` exits 0 on a connection
+it can open but has no rights to read, which yields a well-formed file
+containing nothing. A bad dump is worse than a missing one, because a missing
+one is visible.
+
+Restore, into a scratch container:
+
+```bash
+su postgres -c "initdb -D /scratch/pg -A trust"
+su postgres -c "pg_ctl -D /scratch/pg -o '-p 5433 -k /tmp' -w start"
+gunzip -c postiz-latest.sql.gz | psql -p 5433 -h /tmp -U postgres -d postgres
+```
+
+Two errors are expected and harmless: `current user cannot be dropped` and
+`role "postgres" already exists`. `--clean` emits a `DROP ROLE` for the role
+running the restore, which can never succeed. Everything else must be silent.
+
+This is a second layer, not the only one. The host's backup job takes its own
+independent `pg_dumpall` on the weekly and monthly rotations, and Nagios
+watches that copy for age and size. This timer exists to cut the worst-case
+RPO from seven days to one, and to keep dated history so a dump that goes bad
+cannot quietly overwrite the last good one. RT #1495.
 
 ## Memory footprint
 
