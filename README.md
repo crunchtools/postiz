@@ -1,6 +1,6 @@
 # Postiz - Self-Hosted Social Media Scheduler (v0.3.0)
 
-Replaces Buffer with [Postiz](https://postiz.com), a self-hosted open-source social media scheduling tool. Deployed on sven as a single UBI 10 systemd container.
+Replaces Buffer with [Postiz](https://postiz.com), a self-hosted open-source social media scheduling tool. Deployed as a single UBI 10 systemd container.
 
 RT #1392
 
@@ -16,7 +16,7 @@ Single container running all services:
 | Node.js 22 (PM2) | 3000, 4200 | Backend + Frontend |
 | nginx | 5000 | Internal reverse proxy |
 
-External: port 8092 on sven -> container port 5000.
+External: port 8092 -> container port 5000.
 
 ## Build
 
@@ -28,7 +28,7 @@ Build requires ~4GB memory for the Node.js compilation step.
 
 ## Deploy
 
-See `/srv/postiz.crunchtools.com/` on sven for the deployment configuration.
+The live deployment configuration lives in the private host repo, not here.
 
 ## Memory footprint
 
