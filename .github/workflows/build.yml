@@ -1,5 +1,18 @@
 name: Build, Test and Push Postiz Image
 
+# Constitution Section III: dual-push to Quay and GHCR as two jobs, gha layer
+# caching on both, Trivy on the published image. RT #1480.
+#
+# The build moved off redhat-actions/buildah-build to docker/build-push-action
+# because buildah has no equivalent of cache-from/cache-to type=gha, and this
+# image (Temporal, tctl and the full Postiz node app) rebuilt from scratch on
+# every run.
+#
+# The tests still run under podman: tests/test-container.sh boots the image with
+# --systemd=always, which docker has no equivalent for. So the Quay job builds
+# with load: true, hands the image to root podman, tests it, then builds again
+# to push. The second build is a cache hit, not a rebuild.
+
 on:
   push:
     branches: [main]
@@ -8,10 +21,19 @@ on:
   repository_dispatch:
     types: [parent-image-updated]
   workflow_dispatch:
+
+env:
+  REGISTRY: quay.io
+  IMAGE_NAME: crunchtools/postiz
+  GHCR_IMAGE: ghcr.io/crunchtools/postiz
+
 jobs:
-  build-test-push:
+  build-and-push-quay:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+
     steps:
       - uses: actions/checkout@v4
 
@@ -21,36 +43,129 @@ jobs:
           sudo docker image prune -af
           df -h /
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Prepare RHSM secrets
         run: |
           echo "${{ secrets.RHSM_ACTIVATION_KEY }}" > /tmp/RHSM_ACTIVATION_KEY
           echo "${{ secrets.RHSM_ORG_ID }}" > /tmp/RHSM_ORG_ID
 
-      - name: Build image with Buildah
-        id: build
-        uses: redhat-actions/buildah-build@v2
+      - name: Log in to Quay.io
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
         with:
-          image: postiz
-          tags: latest ${{ github.sha }}
-          containerfiles: ./Containerfile
-          extra-args: |
-            --secret id=RHSM_ACTIVATION_KEY,src=/tmp/RHSM_ACTIVATION_KEY
-            --secret id=RHSM_ORG_ID,src=/tmp/RHSM_ORG_ID
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
 
-      - name: Transfer image to root storage
-        run: podman save localhost/postiz:latest | sudo podman load
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=
+
+      - name: Build image for testing
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Containerfile
+          load: true
+          tags: postiz:test
+          secret-files: |
+            RHSM_ACTIVATION_KEY=/tmp/RHSM_ACTIVATION_KEY
+            RHSM_ORG_ID=/tmp/RHSM_ORG_ID
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # tests/test-container.sh runs the image with --systemd=always and
+      # --privileged, so it needs podman and root storage.
+      - name: Transfer image to root podman storage
+        run: docker save postiz:test | sudo podman load
 
       - name: Test container image
         run: |
           chmod +x tests/test-container.sh
-          sudo tests/test-container.sh localhost/postiz:latest
+          sudo tests/test-container.sh localhost/postiz:test
 
-      - name: Push to Quay.io
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: redhat-actions/push-to-registry@v2
+      - name: Build and push
+        uses: docker/build-push-action@v6
         with:
-          image: ${{ steps.build.outputs.image }}
-          tags: ${{ steps.build.outputs.tags }}
-          registry: quay.io/crunchtools
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD }}
+          context: .
+          file: ./Containerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          secret-files: |
+            RHSM_ACTIVATION_KEY=/tmp/RHSM_ACTIVATION_KEY
+            RHSM_ORG_ID=/tmp/RHSM_ORG_ID
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        continue-on-error: true
+        if: github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          format: "table"
+          exit-code: "0"
+          severity: "CRITICAL,HIGH"
+
+  build-and-push-ghcr:
+    runs-on: ubuntu-latest
+    needs: build-and-push-quay
+    if: github.event_name != 'pull_request'
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo docker image prune -af
+          df -h /
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare RHSM secrets
+        run: |
+          echo "${{ secrets.RHSM_ACTIVATION_KEY }}" > /tmp/RHSM_ACTIVATION_KEY
+          echo "${{ secrets.RHSM_ORG_ID }}" > /tmp/RHSM_ORG_ID
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ github.token }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GHCR_IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Containerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          secret-files: |
+            RHSM_ACTIVATION_KEY=/tmp/RHSM_ACTIVATION_KEY
+            RHSM_ORG_ID=/tmp/RHSM_ORG_ID
+          cache-from: type=gha
