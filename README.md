@@ -1,4 +1,4 @@
-# Postiz - Self-Hosted Social Media Scheduler (v0.4.0)
+# Postiz - Self-Hosted Social Media Scheduler (v0.4.1)
 
 Replaces Buffer with [Postiz](https://postiz.com), a self-hosted open-source social media scheduling tool. Deployed as a single UBI 10 systemd container.
 

@@ -32,8 +32,13 @@ RUN CGO_ENABLED=0 go build -o /out/tctl ./cmd/tctl
 # --- Stage 3: Build Postiz from source (UBI 10 for glibc match with final stage) ---
 FROM registry.access.redhat.com/ubi10/ubi AS postiz-build
 RUN dnf install -y nodejs npm git gcc g++ make python3 && dnf clean all
-RUN git clone --depth 1 --branch crunchtools-patches \
-        https://github.com/fatherlinux/postiz-app.git /src/postiz
+# Pinned to a commit on fatherlinux/postiz-app crunchtools-patches. Bump it to
+# ship a fork change: a branch clone never busts the gha layer cache.
+ARG POSTIZ_COMMIT=2bd481f3b49a0b38e22bc3d8971a18d7e1fe0091
+RUN git init -q /src/postiz && cd /src/postiz && \
+    git remote add origin https://github.com/fatherlinux/postiz-app.git && \
+    git fetch -q --depth 1 origin ${POSTIZ_COMMIT} && \
+    git checkout -q FETCH_HEAD
 WORKDIR /src/postiz
 RUN npm install -g pnpm@10.6.1 && \
     echo 'onlyBuiltDependencies=*' >> .npmrc && \

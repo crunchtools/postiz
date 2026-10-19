@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-19
+
+### Fixed
+
+- X posts that fail for lack of API credits now say so instead of
+  "Unknown Error" (fatherlinux/postiz-app#3). Posts failed this way from
+  2026-09-10 to 2026-10-18 with no visible cause.
+- The fork is now pinned by commit (`POSTIZ_COMMIT`). Cloning the branch by
+  name let the gha layer cache serve stale source, so fork changes never
+  reached the image.
+
 ### Changed
 
 - Added `.specify/memory/constitution.md` as a v1.18.0 manifest: it holds
