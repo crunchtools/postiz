@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-24
+
+### Changed
+
+- Postiz rebased from a February 2026 base to upstream v2.25.3, on fork
+  branch `crunchtools-v2.25.3`. This brings in upstream's responsive/mobile
+  UI, the self-hosted MCP connector, and the v2.25.3 JWT bypass security fix.
+- MCP post tools are now upstream's: `listPostsTool` is renamed
+  `postsListTool`, and `deletePostTool` keeps its name. Callers of the old
+  name must switch.
+- The fork's patch stack drops from 10 commits to 6. Upstream absorbed the
+  MCP list/delete tools, the schedule-post error wrapping, and the X
+  280-character limit. Still carried: the LinkedIn and Mastodon OAuth scope
+  fixes, no close-modal confirmations, the integrationList outputSchema fix
+  (now also declaring `customer`), the X credits-depleted error, and the
+  `POSTIZ_ACTIVE_PROVIDERS` worker allowlist, which now composes with
+  upstream's `EXCLUDE_QUEUE`.
+
+### Removed
+
+- `patches/`: the MCP list/delete patch file. Nothing applied it, and
+  upstream now ships equivalent tools.
+
 ## [0.4.1] - 2026-10-19
 
 ### Fixed
