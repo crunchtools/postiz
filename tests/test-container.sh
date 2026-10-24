@@ -34,7 +34,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "TAP version 13"
-echo "1..45"
+echo "1..48"
 echo "# Image: $IMAGE"
 echo "# Engine: $ENGINE"
 
@@ -83,6 +83,17 @@ done < <($ENGINE run --rm --entrypoint /bin/bash "$IMAGE" -c '
             && ok "MCP tool $t compiled into backend" \
             || nok "MCP tool $t compiled into backend"
     done
+
+    # PM2 heap caps: defaults, a valid override, and invalid overrides that
+    # must fall back (zero, negative, fractional, non-numeric).
+    caps() { node -e "process.stdout.write(require(\"/app/ecosystem.config.js\").apps.map(a => a.name + \"=\" + a.interpreter_args.match(/max-old-space-size=(\\d+)/)[1]).join(\" \"))"; }
+    [ "$(caps)" = "backend=640 frontend=384 orchestrator=384" ] \
+        && ok "PM2 heap caps default to 640/384/384" || nok "PM2 heap caps default to 640/384/384"
+    [ "$(POSTIZ_BACKEND_HEAP_MB=768 caps)" = "backend=768 frontend=384 orchestrator=384" ] \
+        && ok "POSTIZ_BACKEND_HEAP_MB overrides the backend cap" || nok "POSTIZ_BACKEND_HEAP_MB overrides the backend cap"
+    [ "$(POSTIZ_BACKEND_HEAP_MB=0 POSTIZ_FRONTEND_HEAP_MB=-5 POSTIZ_ORCHESTRATOR_HEAP_MB=1.5 caps)" = "backend=640 frontend=384 orchestrator=384" ] \
+        && [ "$(POSTIZ_BACKEND_HEAP_MB=lots caps)" = "backend=640 frontend=384 orchestrator=384" ] \
+        && ok "invalid heap overrides fall back to defaults" || nok "invalid heap overrides fall back to defaults"
 ')
 
 # NODE_EXTRA_CA_CERTS (via image inspect — cannot check inside non-running container)
@@ -92,7 +103,7 @@ else
     tap "FAIL" "NODE_EXTRA_CA_CERTS set in image config"
 fi
 
-# Phase 1 total: 8 files + 5 exec + 8 systemd + 1 SSL + 4 MCP + 1 env = 27 tests
+# Phase 1 total: 8 files + 5 exec + 8 systemd + 1 SSL + 4 MCP + 3 heap + 1 env = 30 tests
 
 # ==================================================================
 # Phase 2: Runtime service checks (systemd container)
@@ -214,7 +225,7 @@ run_check "restored postiz database accepts connections" \
     bash -c "psql -U postgres -d postiz -tAc 'SELECT 1' | grep -q 1"
 
 # Phase 2 total: 10 + 8 = 18 tests
-# Grand total: 45 tests
+# Grand total: 48 tests
 
 # ==================================================================
 # Summary
