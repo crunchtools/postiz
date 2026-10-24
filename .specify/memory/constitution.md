@@ -1,6 +1,6 @@
 # postiz Constitution
 
-> **Version:** 1.0.0
+> **Version:** 1.1.0
 > **Ratified:** 2026-10-02
 > **Status:** Active
 > **Inherits:** [crunchtools/constitution](https://github.com/crunchtools/constitution) v1.26.0
@@ -69,10 +69,13 @@ Upstream Postiz is sized for multi-tenant SaaS; this image is single-tenant.
 - **No wrapper processes:** `ecosystem.config.js` runs `node` directly, not
   upstream's `pnpm start -> dotenv -> node` chain (~195 MB saved). The
   environment comes from `--env-file` and `postiz-app.service`.
-- **Per-app heap caps** via PM2 `interpreter_args`: backend 384 MB, frontend
-  384 MB, orchestrator 256 MB. Backend and frontend crash-looped at lower
-  values; do not lower them without watching `pm2 list` restart counts under
-  real traffic.
+- **Per-app heap caps** via PM2 `interpreter_args`: defaults backend 640 MB,
+  frontend 384 MB, orchestrator 384 MB, each overridable with
+  `POSTIZ_{BACKEND,FRONTEND,ORCHESTRATOR}_HEAP_MB` in `/etc/postiz/env`. Every
+  app has crash-looped at a lower value (backend at 256 and, on v2.25.3, at
+  384; orchestrator at 256 on v2.25.3); do not lower one without watching
+  `pm2 list` restart counts under real traffic. The container's `--memory=2g`
+  is the hard ceiling on their sum plus native memory.
 
 ## Backups
 
@@ -101,3 +104,4 @@ repo, not here.
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0.0 | 2026-10-02 | Initial constitution, written as a v1.18.0 manifest |
+| 1.1.0 | 2026-10-24 | Postiz source is a `crunchtools-<upstream tag>` fork branch pinned by commit; heap caps raised for v2.25.3 and made env-overridable |

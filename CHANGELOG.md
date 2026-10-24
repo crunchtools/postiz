@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-24
+
+### Fixed
+
+- v0.5.0 OOM-killed the backend (384 MB heap) and the orchestrator (256 MB)
+  at boot against the production database, so the API returned 502 until
+  production was rolled back. Defaults are now backend 640, orchestrator 384
+  and frontend 384.
+
+### Added
+
+- `POSTIZ_BACKEND_HEAP_MB`, `POSTIZ_FRONTEND_HEAP_MB` and
+  `POSTIZ_ORCHESTRATOR_HEAP_MB` in `/etc/postiz/env` override the heap caps,
+  so production can be retuned with a restart instead of a rebuild.
+
 ## [0.5.0] - 2026-10-24
 
 ### Changed

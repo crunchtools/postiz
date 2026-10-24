@@ -1,4 +1,4 @@
-# Postiz - Self-Hosted Social Media Scheduler (v0.5.0)
+# Postiz - Self-Hosted Social Media Scheduler (v0.5.1)
 
 Replaces Buffer with [Postiz](https://postiz.com), a self-hosted open-source social media scheduling tool. Deployed as a single UBI 10 systemd container.
 
@@ -87,7 +87,19 @@ pure overhead. `ecosystem.config.js` invokes `node` directly instead.
 
 **3. Heap and pool sizing.** Per-app `--max-old-space-size` via PM2
 `interpreter_args` (a CLI flag beats an inherited `NODE_OPTIONS`; the resulting
-V8 ceiling is the flag + ~48MB). Temporal datastore pools and postgres
+V8 ceiling is the flag + ~48MB). Defaults are backend 640MB, frontend 384MB and
+orchestrator 384MB. Override any of them in `/etc/postiz/env` and restart the
+container, no rebuild needed:
+
+```
+POSTIZ_BACKEND_HEAP_MB=768
+POSTIZ_FRONTEND_HEAP_MB=384
+POSTIZ_ORCHESTRATOR_HEAP_MB=448
+```
+
+Values must be positive whole numbers of MB; anything else falls back to the
+default. Keep the sum plus native memory under the container's `--memory=2g`.
+Temporal datastore pools and postgres
 `max_connections` trimmed to match single-tenant reality.
 
 Note that `maxCachedWorkflows` defaults to a value derived from

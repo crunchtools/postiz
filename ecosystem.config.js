@@ -21,6 +21,15 @@
 
 const REQUIRE_MODULE = '--experimental-require-module';
 
+// Heap caps in MB, overridable per app from /etc/postiz/env so production can
+// be retuned with a restart instead of a rebuild. The v2.25.3 rebase (v0.5.0)
+// OOM-killed backend at 384 and orchestrator at 256 on boot against the
+// production database; CI's empty database never got near either limit.
+const heap = (name, fallback) => {
+  const value = Number(process.env[`POSTIZ_${name}_HEAP_MB`]);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+};
+
 module.exports = {
   apps: [
     {
@@ -28,14 +37,14 @@ module.exports = {
       cwd: '/app/apps/backend',
       script: './dist/apps/backend/src/main.js',
       interpreter: 'node',
-      // 384, not 256. The backend's live working set reaches ~246 MB of
-      // old-space and 256 killed it: it crash-looped 111 times in 21 minutes
+      // 640 since v0.5.1 (see heap() above). History: 384, not 256. The
+      // backend's live working set reached ~246 MB of old-space and 256 killed it: it crash-looped 111 times in 21 minutes
       // with "Reached heap limit Allocation failed - JavaScript heap out of
       // memory", taking the API down (nginx 502 on /api/*) while the frontend
       // kept serving and looked healthy. 384 is the value it ran on for months
       // under the old global NODE_OPTIONS. Do not lower it without watching
       // `pm2 list` restart counts for several minutes under real traffic.
-      interpreter_args: `${REQUIRE_MODULE} --max-old-space-size=384`,
+      interpreter_args: `${REQUIRE_MODULE} --max-old-space-size=${heap('BACKEND', 640)}`,
     },
     {
       name: 'frontend',
@@ -49,14 +58,14 @@ module.exports = {
       script: '/app/node_modules/.bin/next',
       args: 'start -p 4200',
       interpreter: 'node',
-      interpreter_args: '--max-old-space-size=384',
+      interpreter_args: `--max-old-space-size=${heap('FRONTEND', 384)}`,
     },
     {
       name: 'orchestrator',
       cwd: '/app/apps/orchestrator',
       script: './dist/apps/orchestrator/src/main.js',
       interpreter: 'node',
-      interpreter_args: `${REQUIRE_MODULE} --max-old-space-size=256`,
+      interpreter_args: `${REQUIRE_MODULE} --max-old-space-size=${heap('ORCHESTRATOR', 384)}`,
     },
   ],
 };
