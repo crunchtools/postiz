@@ -31,11 +31,12 @@ unregisters in the same layer.
 
 ## Postiz Source
 
-Postiz is built from the `crunchtools-patches` branch of
-`github.com/fatherlinux/postiz-app`, not from upstream `gitroomhq/postiz-app`
-directly. `patches/` holds the crunchtools change to Postiz (MCP tools for
-listing and deleting posts) as a reviewable patch file; the Containerfile does
-not apply it. If building from source on UBI fails, the README documents a
+Postiz is built from a pinned commit (`POSTIZ_COMMIT`) on a
+`crunchtools-<upstream tag>` branch of `github.com/fatherlinux/postiz-app`,
+currently `crunchtools-v2.25.3`: upstream's release tag plus a thin stack of
+crunchtools patches. Upstream does not merge outside PRs, so the stack is
+rebased onto each upstream release we adopt, and patches upstream absorbs are
+dropped. Older branches stay for rollback. If building from source on UBI fails, the README documents a
 fallback that copies `/app` from the official upstream image.
 
 ## Services and Ports

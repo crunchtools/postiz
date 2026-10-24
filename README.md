@@ -1,4 +1,4 @@
-# Postiz - Self-Hosted Social Media Scheduler (v0.4.1)
+# Postiz - Self-Hosted Social Media Scheduler (v0.5.0)
 
 Replaces Buffer with [Postiz](https://postiz.com), a self-hosted open-source social media scheduling tool. Deployed as a single UBI 10 systemd container.
 
@@ -109,7 +109,7 @@ If building from source on UBI fails, replace the build section in the Container
 
 ```dockerfile
 # Replace the git clone + pnpm install + pnpm build steps with:
-FROM ghcr.io/gitroomhq/postiz-app:v2.19.0 AS postiz-source
+FROM ghcr.io/gitroomhq/postiz-app:v2.25.3 AS postiz-source
 # Then in the final stage:
 COPY --from=postiz-source /app /app
 RUN cd /app && npm rebuild
