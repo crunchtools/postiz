@@ -34,7 +34,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "TAP version 13"
-echo "1..41"
+echo "1..45"
 echo "# Image: $IMAGE"
 echo "# Engine: $ENGINE"
 
@@ -74,6 +74,15 @@ done < <($ENGINE run --rm --entrypoint /bin/bash "$IMAGE" -c '
     # nginx SSL block
     grep -q "listen 443 ssl" /etc/nginx/nginx.conf \
         && ok "nginx.conf has SSL server block" || nok "nginx.conf has SSL server block"
+
+    # MCP tools Trentina calls by name. A rebase onto a new upstream tag can
+    # rename or drop one (v0.5.0: listPostsTool became postsListTool), and
+    # that only surfaces as a broken agent call in production.
+    for t in integrationList integrationSchedulePostTool postsListTool deletePostTool; do
+        grep -rqs --include="*.js" "name = .$t.;" /app/apps/backend/dist \
+            && ok "MCP tool $t compiled into backend" \
+            || nok "MCP tool $t compiled into backend"
+    done
 ')
 
 # NODE_EXTRA_CA_CERTS (via image inspect — cannot check inside non-running container)
@@ -83,7 +92,7 @@ else
     tap "FAIL" "NODE_EXTRA_CA_CERTS set in image config"
 fi
 
-# Phase 1 total: 8 files + 5 exec + 8 systemd + 1 SSL + 1 env = 23 tests
+# Phase 1 total: 8 files + 5 exec + 8 systemd + 1 SSL + 4 MCP + 1 env = 27 tests
 
 # ==================================================================
 # Phase 2: Runtime service checks (systemd container)
@@ -205,7 +214,7 @@ run_check "restored postiz database accepts connections" \
     bash -c "psql -U postgres -d postiz -tAc 'SELECT 1' | grep -q 1"
 
 # Phase 2 total: 10 + 8 = 18 tests
-# Grand total: 41 tests
+# Grand total: 45 tests
 
 # ==================================================================
 # Summary
