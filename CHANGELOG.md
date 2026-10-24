@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-24
+
+### Added
+
+- `POSTIZ_SLOT_WEEKDAYS` (e.g. `1-5`, 0 = Sunday) limits find-slot ("next
+  free posting time") to those weekdays, judged in `POSTIZ_SLOT_TIMEZONE`
+  (IANA zone, default UTC). Unset keeps upstream behaviour (every day). Fork
+  patch 7 on `crunchtools-v2.25.3`.
+
 ## [0.5.1] - 2026-10-24
 
 ### Fixed

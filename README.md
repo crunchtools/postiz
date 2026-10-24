@@ -107,6 +107,21 @@ Note that `maxCachedWorkflows` defaults to a value derived from
 sticky workflow cache too. We set it explicitly rather than relying on that
 side effect.
 
+## Posting days
+
+Postiz's find-slot (the "next free slot" used by its UI, the public API and
+the MCP tools) walks every calendar day. To keep it to weekdays, set in
+`/etc/postiz/env`:
+
+```
+POSTIZ_SLOT_WEEKDAYS=1-5
+POSTIZ_SLOT_TIMEZONE=America/New_York
+```
+
+Days are 0 = Sunday to 6 = Saturday, as ranges or a comma list. The zone
+matters because posting times are UTC minutes: an 8 PM Eastern window is
+00:00 UTC the next day. An invalid zone falls back to UTC with a warning.
+
 ## MCP Integration
 
 Postiz exposes a Public API for scheduling posts. Due to [SSE transport issues behind nginx](https://github.com/gitroomhq/postiz-app/issues/984), use the REST API approach:
