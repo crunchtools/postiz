@@ -84,6 +84,12 @@ done < <($ENGINE run --rm --entrypoint /bin/bash "$IMAGE" -c '
             || nok "MCP tool $t compiled into backend"
     done
 
+    # find-slot weekday filter (fork patch): the env knob must be compiled in,
+    # or "next free slot" silently lands on weekends again.
+    grep -rqs --include="*.js" "POSTIZ_SLOT_WEEKDAYS" /app/apps/backend/dist \
+        && ok "find-slot weekday filter compiled into backend" \
+        || nok "find-slot weekday filter compiled into backend"
+
     # PM2 heap caps: defaults, a valid override, and invalid overrides that
     # must fall back (zero, negative, fractional, non-numeric).
     caps() { node -e "process.stdout.write(require(\"/app/ecosystem.config.js\").apps.map(a => a.name + \"=\" + a.interpreter_args.match(/max-old-space-size=(\\d+)/)[1]).join(\" \"))"; }
