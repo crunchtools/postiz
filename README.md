@@ -129,6 +129,7 @@ Postiz exposes a Public API for scheduling posts. Due to [SSE transport issues b
 - **Base URL**: `https://postiz.crunchtools.com/api/public/v1`
 - **Auth**: API key from Postiz Settings UI in `Authorization` header
 - **Endpoints**: `GET /integrations`, `POST /posts`, `POST /upload`
+- **Next slot**: `GET /find-slot/:id`, or `?after=<ISO-8601>` for the slot after that one (fork patch)
 
 ## Fallback: Multi-Stage from Official Image
 
