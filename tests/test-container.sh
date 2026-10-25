@@ -90,6 +90,11 @@ done < <($ENGINE run --rm --entrypoint /bin/bash "$IMAGE" -c '
         && ok "find-slot weekday filter compiled into backend" \
         || nok "find-slot weekday filter compiled into backend"
 
+    # find-slot?after= (fork patch): Acquacotta steps through open slots with it.
+    grep -rqs --include="*.js" "after must be an ISO-8601 date" /app/apps/backend/dist \
+        && ok "find-slot after= compiled into backend" \
+        || nok "find-slot after= compiled into backend"
+
     # PM2 heap caps: defaults, a valid override, and invalid overrides that
     # must fall back (zero, negative, fractional, non-numeric).
     caps() { node -e "process.stdout.write(require(\"/app/ecosystem.config.js\").apps.map(a => a.name + \"=\" + a.interpreter_args.match(/max-old-space-size=(\\d+)/)[1]).join(\" \"))"; }

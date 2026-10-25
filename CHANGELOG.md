@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-24
+
+### Added
+
+- Public `GET /find-slot/:id?after=<ISO-8601>` returns the first free slot
+  strictly after that instant (400 for a non-date), so clients can step
+  forward through open slots. Fork patch 8 on `crunchtools-v2.25.3`.
+
 ## [0.6.0] - 2026-10-24
 
 ### Added
