@@ -34,7 +34,7 @@ FROM registry.access.redhat.com/ubi10/ubi AS postiz-build
 RUN dnf install -y nodejs npm git gcc g++ make python3 && dnf clean all
 # Pinned to a commit on fatherlinux/postiz-app crunchtools-v2.25.3. Bump it to
 # ship a fork change: a branch clone never busts the gha layer cache.
-ARG POSTIZ_COMMIT=7fc13ac4792d81fbf40ab370a5a82e701e5e68fe
+ARG POSTIZ_COMMIT=3d603dc137ab17bd8b43d85cd5fcea8d6085d5f2
 RUN git init -q /src/postiz && cd /src/postiz && \
     git remote add origin https://github.com/fatherlinux/postiz-app.git && \
     git fetch -q --depth 1 origin ${POSTIZ_COMMIT} && \

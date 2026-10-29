@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-29
+
+### Added
+
+- Bluesky link cards: a post without media gets an `app.bsky.embed.external`
+  card for its first link (Open Graph title, description and thumbnail,
+  fetched through the SSRF-safe client; best effort, never fails a post).
+  Link text is shortened the way bsky.app shows it, with the facet keeping the
+  full URL, and the Bluesky length check counts that displayed text in
+  graphemes. Fork patch 9 on `crunchtools-v2.25.3`.
+
 ## [0.7.0] - 2026-10-24
 
 ### Added
