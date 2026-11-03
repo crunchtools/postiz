@@ -23,7 +23,9 @@ cd /app
 # Create Temporal default namespace (idempotent)
 tctl --address 127.0.0.1:7233 namespace register --desc 'Default namespace' --rd 1 default 2>/dev/null || true
 
-# Run Prisma database migrations
-pnpm dlx prisma@6.5.0 db push --accept-data-loss --schema ./libraries/nestjs-libraries/src/database/prisma/schema.prisma
+# Run Prisma database migrations with the CLI and engines baked into the image,
+# so a start never depends on npm. The client was generated at build time.
+CHECKPOINT_DISABLE=1 ./node_modules/.bin/prisma db push --accept-data-loss --skip-generate \
+    --schema ./libraries/nestjs-libraries/src/database/prisma/schema.prisma
 
 exec pm2-runtime ecosystem.config.js

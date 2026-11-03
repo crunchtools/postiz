@@ -34,7 +34,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "TAP version 13"
-echo "1..48"
+echo "1..50"
 echo "# Image: $IMAGE"
 echo "# Engine: $ENGINE"
 
@@ -114,7 +114,21 @@ else
     tap "FAIL" "NODE_EXTRA_CA_CERTS set in image config"
 fi
 
-# Phase 1 total: 8 files + 5 exec + 8 systemd + 1 SSL + 4 MCP + 3 heap + 1 env = 30 tests
+# Prisma must run with no network: postiz-start.sh runs db push at every boot.
+if $ENGINE run --rm --network none --entrypoint /bin/bash "$IMAGE" -c \
+    'cd /app && CHECKPOINT_DISABLE=1 ./node_modules/.bin/prisma version' &>/dev/null; then
+    tap "PASS" "Prisma CLI and schema engine run offline"
+else
+    tap "FAIL" "Prisma CLI and schema engine run offline"
+fi
+if $ENGINE run --rm --entrypoint /bin/bash "$IMAGE" -c \
+    '! grep -q "pnpm dlx" /usr/local/bin/postiz-start.sh' &>/dev/null; then
+    tap "PASS" "postiz-start.sh downloads nothing at boot"
+else
+    tap "FAIL" "postiz-start.sh downloads nothing at boot"
+fi
+
+# Phase 1 total: 8 files + 5 exec + 8 systemd + 1 SSL + 4 MCP + 3 heap + 1 env + 2 offline = 32 tests
 
 # ==================================================================
 # Phase 2: Runtime service checks (systemd container)

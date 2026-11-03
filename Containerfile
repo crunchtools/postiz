@@ -44,6 +44,9 @@ RUN npm install -g pnpm@10.6.1 && \
     echo 'onlyBuiltDependencies=*' >> .npmrc && \
     pnpm install && \
     NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
+# Fetch the schema engine for the pinned Prisma CLI into node_modules, so
+# postiz-start.sh can run db push at boot without reaching binaries.prisma.sh.
+RUN CHECKPOINT_DISABLE=1 ./node_modules/.bin/prisma version
 
 # --- Stage 4: Final UBI 10 image with all services ---
 # Inherits troubleshooting tools, cron, systemd hardening from ubi10-core

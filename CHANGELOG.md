@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-02
+
+### Fixed
+
+- Postiz starts without internet access. `postiz-start.sh` ran
+  `pnpm dlx prisma@6.5.0`, downloading the CLI and its schema engine from npm
+  and binaries.prisma.sh at every boot, so a restore with no outbound network
+  never came up (RT #1546). It now uses the fork's pinned Prisma 6.5.0 from
+  `/app/node_modules`, with the schema engine fetched at build time.
+
 ## [0.8.0] - 2026-10-29
 
 ### Added
