@@ -66,7 +66,12 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            # `latest` is the newest STABLE RELEASE, not the newest build of the
+            # branch, which has its own tag above (constitution 1.33.0, RT#1559).
+            # A prerelease is not what `latest` means, so it is excluded by the
+            # hyphen: SemVer puts every prerelease identifier after one.
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') && !contains(github.ref_name, '-') }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=
@@ -113,7 +118,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
           format: "table"
           exit-code: "0"
           severity: "CRITICAL,HIGH"
@@ -157,7 +162,12 @@ jobs:
         with:
           images: ${{ env.GHCR_IMAGE }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            # `latest` is the newest STABLE RELEASE, not the newest build of the
+            # branch, which has its own tag above (constitution 1.33.0, RT#1559).
+            # A prerelease is not what `latest` means, so it is excluded by the
+            # hyphen: SemVer puts every prerelease identifier after one.
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') && !contains(github.ref_name, '-') }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=
