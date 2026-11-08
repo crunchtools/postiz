@@ -98,7 +98,10 @@ POSTIZ_ORCHESTRATOR_HEAP_MB=448
 ```
 
 Values must be positive whole numbers of MB; anything else falls back to the
-default. Keep the sum plus native memory under the container's `--memory=2g`.
+default. Keep the sum plus native memory under the container's `--memory=4g`.
+The cap is headroom, not a target: Nagios warns on the container at 85% of it,
+and 2g put the steady state at 1759 MB -- a permanent WARNING with nothing
+wrong. The host unit is `deploy/systemd/postiz.crunchtools.com.service`.
 Temporal datastore pools and postgres
 `max_connections` trimmed to match single-tenant reality.
 
