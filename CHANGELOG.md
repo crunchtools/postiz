@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-11-07
+
+### Changed
+- `:latest` now moves on a release tag rather than on every push to `main`,
+  and the branch tag is published separately. This is what makes the tag mean
+  "the newest release" instead of "whatever merged last", so a container
+  restart can no longer deploy unreviewed work by accident (constitution
+  1.33.0).
+- Otherwise toolchain only: constitution v1.29.0 and v1.31.0.
+
+### Note — release history reconciled forward
+`0.8.0` and `0.8.1` above were released and documented but **never tagged**:
+`git tag` stopped at `v0.7.0` and GitHub Releases listed only `v0.2.0`. They
+correspond to `33bbf2f` and `e036e60`.
+
+They were deliberately **not** tagged retroactively. `.github/workflows/build.yml`
+builds on any pushed `v*` tag and sets `:latest` from that ref, and `e036e60`
+is an ancestor of what production was already running — so creating those tags
+would have published an older image as `:latest` and downgraded the running
+service. Tagging this release at the current head carries both of them forward
+instead, which is the same content with none of that risk.
+
+### Note — deployed by ticket from here on
+This service's unit now carries `io.crunchtools.deploy=deployer` and no
+`io.containers.autoupdate` label, so a merge reaches production only when a
+Deploy ticket names a commit: verified against `/p/health`, with an automatic
+rollback if it stops answering.
+
 ## [0.8.1] - 2026-11-02
 
 ### Fixed
