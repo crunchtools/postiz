@@ -74,8 +74,10 @@ Upstream Postiz is sized for multi-tenant SaaS; this image is single-tenant.
   `POSTIZ_{BACKEND,FRONTEND,ORCHESTRATOR}_HEAP_MB` in `/etc/postiz/env`. Every
   app has crash-looped at a lower value (backend at 256 and, on v2.25.3, at
   384; orchestrator at 256 on v2.25.3); do not lower one without watching
-  `pm2 list` restart counts under real traffic. The container's `--memory=2g`
-  is the hard ceiling on their sum plus native memory.
+  `pm2 list` restart counts under real traffic. The container's `--memory=4g`
+  is the hard ceiling on their sum plus native memory, and it is headroom
+  rather than a target: Nagios warns at 85% of the cap, which 2g tripped at a
+  normal 1759 MB steady state.
 
 ## Backups
 

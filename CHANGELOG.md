@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Container cap `--memory=4g --memory-swap=5g`, was `2g`/`3g`. At 2g the
+  normal single-tenant steady state of 1759 MB sat at 85% of the cap, so
+  `Container memory` on `ctr-postiz` was permanently WARNING with nothing
+  wrong. Heap caps and `POSTIZ_ACTIVE_PROVIDERS` are unchanged: this buys
+  headroom, it does not let the apps grow.
+
+### Added
+- `deploy/systemd/postiz.crunchtools.com.service`, the copy of record for the
+  host unit on gloval. It had existed only in `/etc/systemd/system` there,
+  which is not a git repository, so the unit was the one piece of this service
+  with no reviewed source.
+
 ## [0.8.2] - 2026-11-07
 
 ### Changed
