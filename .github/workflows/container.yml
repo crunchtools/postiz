@@ -1,0 +1,35 @@
+name: Container
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  repository_dispatch:
+    types: [parent-image-updated]
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  container:
+    uses: crunchtools/constitution/.github/workflows/container-release.yml@v1.39.2
+    permissions:
+      contents: read
+      pull-requests: read
+    with:
+      image: quay.io/crunchtools/postiz
+      rhsm: true
+      free-disk: true
+      # The repo's own 48-check suite boots the digest under systemd with a
+      # minimal env file and checks services, ports, databases and a
+      # backup/restore round trip.
+      boot: command
+      boot-command: bash tests/test-container.sh "$IMAGE"
+    secrets:
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+      RHSM_ACTIVATION_KEY: ${{ secrets.RHSM_ACTIVATION_KEY }}
+      RHSM_ORG_ID: ${{ secrets.RHSM_ORG_ID }}
