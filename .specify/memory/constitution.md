@@ -3,7 +3,7 @@
 > **Version:** 1.1.0
 > **Ratified:** 2026-10-02
 > **Status:** Active
-> **Inherits:** [crunchtools/constitution](https://github.com/crunchtools/constitution) v1.31.0
+> **Inherits:** [crunchtools/constitution](https://github.com/crunchtools/constitution) v1.39.4
 > **Profile:** Container Image
 
 This file holds what is specific to the postiz image. The fleet rules and the
@@ -14,8 +14,7 @@ this repo's files by `constitution.yml`. They are not restated here.
 
 Self-hosted [Postiz](https://postiz.com) social media scheduler, replacing
 Buffer (RT #1392). One UBI 10 systemd container runs every service Postiz
-needs. Published to `quay.io/crunchtools/postiz` and
-`ghcr.io/crunchtools/postiz`.
+needs. Published to `quay.io/crunchtools/postiz`.
 
 ## Build Stages
 

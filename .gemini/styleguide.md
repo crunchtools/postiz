@@ -21,9 +21,8 @@
 
 ## CI
 - Workflows MUST include weekly cron trigger for base image security updates
-- Build caching is MANDATORY: `cache-from: type=gha` / `cache-to: type=gha,mode=max`
-- Never use `no-cache: true` in CI workflows
-- Dual-push (Quay + GHCR) uses two separate jobs, not steps
+- Container builds go through `crunchtools/constitution/.github/workflows/container-release.yml`: build once per change, gate the digest, promote by `skopeo copy --all --preserve-digests`. Outside the repos listed in `container_release_custom` (profiles/requirements.toml), flag any job that publishes an image (`push`, `skopeo copy`, `docker/build-push-action` with push) or moves `:latest`/`:main`; a local build that is never pushed (an integration-test image) is fine. Everywhere, flag `imagetools create` and a `ghcr.io/crunchtools` reference
+- Quay.io is the only registry
 
 ## Versioning
 - Semantic Versioning 2.0.0
