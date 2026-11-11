@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-11-11
+
 ### Changed
 - Container cap `--memory=4g --memory-swap=5g`, was `2g`/`3g`. At 2g the
   normal single-tenant steady state of 1759 MB sat at 85% of the cap, so
