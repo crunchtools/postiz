@@ -63,18 +63,20 @@ COPY rootfs/ /
 # ---- System packages ----
 # postgresql-server requires RHSM — register, install, unregister in single layer
 RUN --mount=type=secret,id=RHSM_ACTIVATION_KEY \
-    --mount=type=secret,id=RHSM_ORG_ID \
-    subscription-manager register \
-      --activationkey="$(cat /run/secrets/RHSM_ACTIVATION_KEY)" \
-      --org="$(cat /run/secrets/RHSM_ORG_ID)" \
-    && dnf install -y \
-        postgresql-server postgresql postgresql-contrib \
-        valkey \
-        nginx \
-        nodejs npm \
-        hostname curl \
-    && dnf clean all \
-    && subscription-manager unregister
+    --mount=type=secret,id=RHSM_ORG_ID <<'EOF'
+set -euo pipefail
+subscription-manager register \
+    --activationkey="$(cat /run/secrets/RHSM_ACTIVATION_KEY)" \
+    --org="$(cat /run/secrets/RHSM_ORG_ID)"
+trap 'subscription-manager unregister || true; subscription-manager clean || true' EXIT
+dnf install -y \
+    postgresql-server postgresql postgresql-contrib \
+    valkey \
+    nginx \
+    nodejs npm \
+    hostname curl
+dnf clean all
+EOF
 
 # ---- Node.js tooling ----
 RUN npm install -g pm2 pnpm && \
