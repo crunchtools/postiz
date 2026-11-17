@@ -1,0 +1,5 @@
+[tool.sdlc.ci]
+# Written by python-sdlc's scripts/convert_repo.py: the Containerfile needs
+# build secrets (a secret mount, or RHSM) that `sdlc ci` is not given. The
+# publish workflow still builds it, with them.
+skip = ["container-build", "container-smoke", "container-scan"]
