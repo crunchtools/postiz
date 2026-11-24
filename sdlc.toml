@@ -3,3 +3,6 @@
 # build secrets (a secret mount, or RHSM) that `sdlc ci` is not given. The
 # publish workflow still builds it, with them.
 skip = ["container-build", "container-smoke", "container-scan"]
+
+[tool.sdlc]
+repo-kinds = ["container-image"]
