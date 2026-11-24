@@ -6,3 +6,11 @@ skip = ["container-build", "container-smoke", "container-scan"]
 
 [tool.sdlc]
 repo-kinds = ["container-image"]
+
+[tool.sdlc.image]
+# Written by crunchtools/sdlc's scripts/convert_repo.py: moved from the workflows.
+image = "quay.io/crunchtools/postiz"
+rhsm = true
+free-disk = true
+boot = "command"
+boot-command = "bash tests/test-container.sh \"$IMAGE\""
